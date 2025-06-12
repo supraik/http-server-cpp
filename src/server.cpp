@@ -61,6 +61,17 @@ int main(int argc, char **argv)
   accept(server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
   std::cout << "Client connected\n";
 
+  // Sends data back to the connected client
+  // Sends an HTTP response saying "200 OK" (success)
+  // The \r\n\r\n are special HTTP formatting characters
+  std::string resp = "HTTP/1.1 200 OK\r\n\r\n";
+  int bytesSent = send(client_fd, resp.c_str(), resp.size(), 0);
+  if (bytesSent < 0)
+  {
+    std::cout << "Send failed\n";
+    return 1;
+  }
+
   close(server_fd);
 
   return 0;
