@@ -36,7 +36,19 @@ int read_request(SOCKET client_fd)
   }
   else
   {
-    if (strcmp(path, "/index.html") == 0)
+    // Check for /echo/
+    const char *echo_prefix = "/echo/";
+    size_t echo_prefix_len = strlen(echo_prefix);
+    if (strncmp(path, echo_prefix, echo_prefix_len) == 0)
+    {
+      const char *echo_text = path + echo_prefix_len;
+      std::string body = echo_text;
+      std::string headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n";
+      std::string resp = headers + body;
+      send(client_fd, resp.c_str(), resp.size(), 0);
+      std::cout << "Echoed: " << body << "\n";
+    }
+    else if (strcmp(path, "/index.html") == 0)
     {
       std::string resp = "HTTP/1.1 200 OK\r\n\r\n";
       send(client_fd, resp.c_str(), resp.size(), 0);
