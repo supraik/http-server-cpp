@@ -29,6 +29,7 @@ int read_request(SOCKET client_fd)
   std::cout << "Method: " << method << "\n";
   std::cout << "Path: " << path << "\n";
   std::cout << "Protocol: " << protocol << "\n";
+
   if (strcmp(method, "GET") != 0)
   {
     std::cerr << "Unsupported method: " << method << "\n";
@@ -36,9 +37,9 @@ int read_request(SOCKET client_fd)
   }
   else
   {
-    // Check for /echo/
     const char *echo_prefix = "/echo/";
     size_t echo_prefix_len = strlen(echo_prefix);
+
     if (strncmp(path, echo_prefix, echo_prefix_len) == 0)
     {
       const char *echo_text = path + echo_prefix_len;
@@ -48,11 +49,35 @@ int read_request(SOCKET client_fd)
       send(client_fd, resp.c_str(), resp.size(), 0);
       std::cout << "Echoed: " << body << "\n";
     }
+    else if (strcmp(path, "/user-agent") == 0)
+    {
+      // Find the User-Agent header in the buffer
+      std::string req(buffer);
+      std::string user_agent_value;
+      std::string search = "User-Agent: ";
+      size_t pos = req.find(search);
+      if (pos != std::string::npos)
+      {
+        size_t start = pos + search.length();
+        size_t end = req.find("\r\n", start);
+        user_agent_value = req.substr(start, end - start);
+      }
+      std::string headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(user_agent_value.size()) + "\r\n\r\n";
+      std::string resp = headers + user_agent_value;
+      send(client_fd, resp.c_str(), resp.size(), 0);
+      std::cout << "User-Agent echoed: " << user_agent_value << "\n";
+    }
     else if (strcmp(path, "/index.html") == 0)
     {
       std::string resp = "HTTP/1.1 200 OK\r\n\r\n";
       send(client_fd, resp.c_str(), resp.size(), 0);
       std::cout << "Request is valid.\n";
+    }
+    else if (strcmp(path, "/") == 0)
+    {
+      std::string resp = "HTTP/1.1 200 OK\r\n\r\n";
+      send(client_fd, resp.c_str(), resp.size(), 0);
+      std::cout << "Root path served as index.html\n";
     }
     else
     {
