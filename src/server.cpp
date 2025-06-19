@@ -1,96 +1,17 @@
 #include <iostream>
-#include <string>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <sstream>
-#pragma comment(lib, "ws2_32.lib") // Link with ws2_32.lib
+#include "thread_pool.h"
+#include "http_server.h"
 
-int read_request(SOCKET client_fd)
-{
-  const int buffer_size = 4096; // 4KB buffer
-  char buffer[buffer_size];
-
-  int bytes_received = recv(client_fd, buffer, buffer_size - 1, 0);
-  if (bytes_received < 0)
-  {
-    std::cerr << "recv failed\n";
-    return -1;
-  }
-
-  buffer[bytes_received] = '\0'; // Null-terminate for safety
-
-  std::cout << "Received request:\n"
-            << buffer << "\n";
-
-  // Extract the first line
-  char method[16], path[256], protocol[16];
-  sscanf(buffer, "%s %s %s", method, path, protocol);
-
-  std::cout << "Method: " << method << "\n";
-  std::cout << "Path: " << path << "\n";
-  std::cout << "Protocol: " << protocol << "\n";
-
-  if (strcmp(method, "GET") != 0)
-  {
-    std::cerr << "Unsupported method: " << method << "\n";
-    return -1;
-  }
-  else
-  {
-    const char *echo_prefix = "/echo/";
-    size_t echo_prefix_len = strlen(echo_prefix);
-
-    if (strncmp(path, echo_prefix, echo_prefix_len) == 0)
-    {
-      const char *echo_text = path + echo_prefix_len;
-      std::string body = echo_text;
-      std::string headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n";
-      std::string resp = headers + body;
-      send(client_fd, resp.c_str(), resp.size(), 0);
-      std::cout << "Echoed: " << body << "\n";
-    }
-    else if (strcmp(path, "/user-agent") == 0)
-    {
-      // Find the User-Agent header in the buffer
-      std::string req(buffer);
-      std::string user_agent_value;
-      std::string search = "User-Agent: ";
-      size_t pos = req.find(search);
-      if (pos != std::string::npos)
-      {
-        size_t start = pos + search.length();
-        size_t end = req.find("\r\n", start);
-        user_agent_value = req.substr(start, end - start);
-      }
-      std::string headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(user_agent_value.size()) + "\r\n\r\n";
-      std::string resp = headers + user_agent_value;
-      send(client_fd, resp.c_str(), resp.size(), 0);
-      std::cout << "User-Agent echoed: " << user_agent_value << "\n";
-    }
-    else if (strcmp(path, "/index.html") == 0)
-    {
-      std::string resp = "HTTP/1.1 200 OK\r\n\r\n";
-      send(client_fd, resp.c_str(), resp.size(), 0);
-      std::cout << "Request is valid.\n";
-    }
-    else if (strcmp(path, "/") == 0)
-    {
-      std::string resp = "HTTP/1.1 200 OK\r\n\r\n";
-      send(client_fd, resp.c_str(), resp.size(), 0);
-      std::cout << "Root path served as index.html\n";
-    }
-    else
-    {
-      std::string resp = "HTTP/1.1 404 Not Found\r\n\r\n";
-      send(client_fd, resp.c_str(), resp.size(), 0);
-    }
-    return 0;
-  }
-}
+#pragma comment(lib, "ws2_32.lib")
 
 int main(int argc, char **argv)
 {
-  // Initialize Winsock
+  std::cout << std::unitbuf;
+  std::cerr << std::unitbuf;
+  std::cout << "Logs from your program will appear here!\n";
+
   WSADATA wsaData;
   if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
   {
@@ -98,11 +19,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  std::cout << std::unitbuf;
-  std::cerr << std::unitbuf;
-  std::cout << "Logs from your program will appear here!\n";
-
-  SOCKET server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  SOCKET server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (server_fd == INVALID_SOCKET)
   {
     std::cerr << "Failed to create server socket\n";
@@ -120,6 +37,7 @@ int main(int argc, char **argv)
   }
 
   sockaddr_in server_addr;
+  memset(&server_addr, 0, sizeof(server_addr));
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
   server_addr.sin_port = htons(4221);
@@ -141,28 +59,21 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  sockaddr_in client_addr;
-  int client_addr_len = sizeof(client_addr);
+  ThreadPool pool(std::thread::hardware_concurrency());
 
-  std::cout << "Waiting for a client to connect...\n";
-
-  SOCKET client_fd = accept(server_fd, (sockaddr *)&client_addr, &client_addr_len);
-
-  if (client_fd == INVALID_SOCKET)
+  std::cout << "Waiting for clients...\n";
+  while (true)
   {
-    std::cerr << "Failed to accept client connection\n";
-    closesocket(server_fd);
-    WSACleanup();
-    return 1;
+    SOCKET client_fd = accept(server_fd, nullptr, nullptr);
+    if (client_fd == INVALID_SOCKET)
+    {
+      std::cerr << "Failed to accept client connection\n";
+      break;
+    }
+    pool.enqueue((int)client_fd); // Cast to int if your ThreadPool expects int
   }
 
-  std::cout << "Client connected\n";
-
-  read_request(client_fd);
-
-  closesocket(client_fd);
   closesocket(server_fd);
   WSACleanup();
-
   return 0;
 }

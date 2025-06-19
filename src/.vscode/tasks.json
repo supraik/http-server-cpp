@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build current file with MSYS2 GCC 15.1.0",
+      "type": "shell",
+      "command": "C:/msys64/usr/bin/bash.exe",
+      "args": [
+        "-c",
+        "/ucrt64/bin/g++ -std=c++20 -g '${file}' -o '${fileDirname}/${fileBasenameNoExtension}.exe'"
+      ],
+      "options": {
+        "env": {
+          "MSYSTEM": "UCRT64",
+          "CHERE_INVOKING": "1"
+        }
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

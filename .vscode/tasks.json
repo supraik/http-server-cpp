@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build server.cpp",
+      "type": "shell",
+      "command": "C:/msys64/ucrt64/bin/g++.exe",
+      "args": [
+        "-std=c++20",
+        "-g",
+        "${workspaceFolder}/src/server.cpp",
+        "-o",
+        "${workspaceFolder}/src/server.exe"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"],
+      "detail": "Compile server.cpp using MSYS2 GCC"
+    }
+  ]
+}

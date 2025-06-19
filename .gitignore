@@ -1,49 +1,18 @@
-# Prerequisites
-*.d
+# Ignore build directory
+/build/
+/build-*/
 
-# Compiled Object files
-*.slo
-*.lo
+# Ignore binaries in root
+*.exe
+*.out
 *.o
 *.obj
 
-# Precompiled Headers
-*.gch
-*.pch
+# Ignore VS Code IntelliSense/browse databases
+.vscode/ipch/
+.vscode/.browse.VC.db
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-server
-
-# CMake
-CMakeLists.txt.user
+# Optionally ignore other generated files
+CMakeFiles/
 CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
-Makefile
-cmake_install.cmake
-install_manifest.txt
 compile_commands.json
-CTestTestfile.cmake
-_deps
-
-build/
-vcpkg_installed

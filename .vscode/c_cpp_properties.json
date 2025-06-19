@@ -1,21 +1,21 @@
 {
-    "configurations": [
-        {
-            "name": "Win32",
-            "includePath": [
-    "${workspaceFolder}/**",
-    "C:/MinGW/include"
-],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
-            ],
-            "compilerPath": "C:\\MinGW\\bin\\gcc.exe",
-            "cStandard": "c23",
-            "cppStandard": "c++23",
-            "intelliSenseMode": "windows-gcc-x86"
-        }
-    ],
-    "version": 4
+  "version": 4,
+  "configurations": [
+    {
+      "name": "MSYS2-UCRT64",
+      "compilerPath": "C:/msys64/ucrt64/bin/g++.exe",
+      "intelliSenseMode": "windows-gcc-x64",
+      "cStandard": "c17",
+      "cppStandard": "c++20",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "C:/msys64/ucrt64/include/c++/15.1.0",
+        "C:/msys64/ucrt64/include/c++/15.1.0/x86_64-w64-mingw32",
+        "C:/msys64/ucrt64/include/c++/15.1.0/backward",
+        "C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include",
+        "C:/msys64/ucrt64/lib/gcc/x86_64-w64-mingw32/15.1.0/include-fixed",
+        "C:/msys64/ucrt64/include"
+      ]
+    }
+  ]
 }
