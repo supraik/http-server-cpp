@@ -5,9 +5,24 @@
 #include "http_server.h"
 
 #pragma comment(lib, "ws2_32.lib")
+#include <string>
+std::string files_directory;
 
-int main(int argc, char **argv)
+
+int main(int argc, char **argv)//argc--> number of arguments and **argv--> array of arguments
 {
+  std::string files_directory = "."; // Default directory for files
+
+  // Parse command line arguments for --directory option
+  for (int i = 1; i < argc; ++i) {
+      if (std::string(argv[i]) == "--directory" && i + 1 < argc) {
+          files_directory = argv[i + 1];
+          //std::cout<<files_directory<<stendl;
+      }
+  }
+
+  std::cout << "Files will be served from: " << files_directory << "\n";
+
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
   std::cout << "Logs from your program will appear here!\n";
@@ -18,6 +33,12 @@ int main(int argc, char **argv)
     std::cerr << "WSAStartup failed\n";
     return 1;
   }
+
+   for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--directory" && i + 1 < argc) {
+            files_directory = argv[i + 1];
+        }
+    }
 
   SOCKET server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (server_fd == INVALID_SOCKET)
