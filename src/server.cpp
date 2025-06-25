@@ -11,7 +11,8 @@ std::string files_directory;
 
 int main(int argc, char **argv)//argc--> number of arguments and **argv--> array of arguments
 {
-  std::string files_directory = "."; // Default directory for files
+  
+   files_directory = "."; // Default directory for files
 
   // Parse command line arguments for --directory option
   for (int i = 1; i < argc; ++i) {
@@ -91,7 +92,7 @@ int main(int argc, char **argv)//argc--> number of arguments and **argv--> array
       std::cerr << "Failed to accept client connection\n";
       break;
     }
-    pool.enqueue((int)client_fd); // Cast to int if your ThreadPool expects int
+    pool.enqueue((int)client_fd);
   }
 
   closesocket(server_fd);

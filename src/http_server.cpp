@@ -7,6 +7,7 @@
 #include <vector>
 extern std::string files_directory;
 
+ 
 int read_request(SOCKET client_fd)
 {
     const int buffer_size = 4096;
@@ -65,6 +66,7 @@ int read_request(SOCKET client_fd)
             if (more <= 0) break;
             body.append(buffer, more);
         }
+        body+="CHECK CHECK";
         std::ofstream outfile(full_path, std::ios::binary);
         outfile.write(body.data(), content_length);
         outfile.close();
@@ -83,7 +85,6 @@ int read_request(SOCKET client_fd)
     {
         const char *echo_prefix = "/echo/";
         size_t echo_prefix_len = strlen(echo_prefix);
-        // files_prefix and files_prefix_len already defined above
         if (strncmp(path, files_prefix, files_prefix_len) == 0)
         {
             std::string filename = path + files_prefix_len;
