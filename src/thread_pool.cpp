@@ -17,7 +17,15 @@ ThreadPool::ThreadPool(size_t num_threads) : stop(false)
                     client_fd = this->tasks.front();
                     this->tasks.pop();
                 }
-                read_request(client_fd);
+                // Persistent connection: handle multiple requests per socket
+                while (true) {
+                    int result = read_request(client_fd);
+                    if (result < 0) break; // error, client closed, or Connection: close
+                    // Optionally, check if the client closed the connection
+                    char peek_buf;
+                    int peeked = recv(client_fd, &peek_buf, 1, MSG_PEEK);
+                    if (peeked <= 0) break;
+                }
                 closesocket(client_fd);
             } });
     }

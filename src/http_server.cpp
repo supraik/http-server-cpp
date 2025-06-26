@@ -5,9 +5,63 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
+#include <sstream>
+#include <unordered_map>
+#include <algorithm>
+#include <zlib.h>
 extern std::string files_directory;
 
- 
+std::string gzip_compress(const std::string& data) {
+    z_stream zs;
+    memset(&zs, 0, sizeof(zs));
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+        throw(std::runtime_error("deflateInit2 failed"));
+
+    zs.next_in = (Bytef*)data.data();
+    zs.avail_in = data.size();
+
+    int ret;
+    char outbuffer[32768];
+    std::string outstring;
+
+    do {
+        zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+        zs.avail_out = sizeof(outbuffer);
+
+        ret = deflate(&zs, Z_FINISH);
+
+        if (outstring.size() < zs.total_out) {
+            outstring.append(outbuffer, zs.total_out - outstring.size());
+        }
+    } while (ret == Z_OK);
+
+    deflateEnd(&zs);
+
+    if (ret != Z_STREAM_END)
+        throw(std::runtime_error("deflate failed"));
+
+    return outstring;
+}
+
+std::unordered_map<std::string, std::string> parse_headers(const std::string& request) {
+    std::unordered_map<std::string, std::string> headers;
+    std::istringstream stream(request);
+    std::string line;
+    std::getline(stream, line); // skip request line
+    while (std::getline(stream, line) && line != "\r") {
+        size_t pos = line.find(":");
+        if (pos != std::string::npos) {
+            std::string key = line.substr(0, pos);
+            std::string value = line.substr(pos + 1);
+            key.erase(std::remove(key.begin(), key.end(), '\r'), key.end());
+            value.erase(std::remove(value.begin(), value.end(), '\r'), value.end());
+            value.erase(0, value.find_first_not_of(" "));
+            headers[key] = value;
+        }
+    }
+    return headers;
+}
+
 int read_request(SOCKET client_fd)
 {
     const int buffer_size = 4096;
@@ -66,7 +120,6 @@ int read_request(SOCKET client_fd)
             if (more <= 0) break;
             body.append(buffer, more);
         }
-        body+="CHECK CHECK";
         std::ofstream outfile(full_path, std::ios::binary);
         outfile.write(body.data(), content_length);
         outfile.close();
@@ -113,9 +166,35 @@ int read_request(SOCKET client_fd)
         {
             const char *echo_text = path + echo_prefix_len;
             std::string body = echo_text;
-            std::string headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(body.size()) + "\r\n\r\n";
-            std::string resp = headers + body;
+
+            std::string req(buffer, bytes_received);
+            auto headers = parse_headers(req);
+            bool add_gzip_header = false;
+            auto it = headers.find("Accept-Encoding");
+            if (it != headers.end()) {
+                std::istringstream iss(it->second);
+                std::string encoding;
+                while (std::getline(iss, encoding, ',')) {
+                    encoding.erase(0, encoding.find_first_not_of(" \t"));
+                    encoding.erase(encoding.find_last_not_of(" \t") + 1);
+                    if (encoding == "gzip") {
+                        add_gzip_header = true;
+                        break;
+                    }
+                }
+            }
+
+            std::string resp = "HTTP/1.1 200 OK\r\n";
+            resp += "Content-Type: text/plain\r\n";
+            std::string response_body = body;
+            if (add_gzip_header) {
+                response_body = gzip_compress(body);
+                resp += "Content-Encoding: gzip\r\n";
+            }
+            resp += "Content-Length: " + std::to_string(response_body.size()) + "\r\n\r\n";
+
             send(client_fd, resp.c_str(), resp.size(), 0);
+            send(client_fd, response_body.data(), response_body.size(), 0);
             std::cout << "Echoed: " << body << "\n";
         }
         else if (strcmp(path, "/user-agent") == 0)
@@ -154,4 +233,5 @@ int read_request(SOCKET client_fd)
         }
         return 0;
     }
+    return 0;
 }

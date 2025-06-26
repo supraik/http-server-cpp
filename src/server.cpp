@@ -95,7 +95,7 @@ int main(int argc, char **argv)//argc--> number of arguments and **argv--> array
     pool.enqueue((int)client_fd);
   }
 
-  closesocket(server_fd);
+ // closesocket(server_fd);
   WSACleanup();
   return 0;
 }
