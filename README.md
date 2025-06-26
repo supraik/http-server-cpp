@@ -33,13 +33,3 @@ Features include URL routing, header parsing, gzip compression, persistent conne
 
 ---
 
-## 📦 Quick Start
-
-1. **Clone & build**  
-   ```bash
-   git clone https://github.com/supratik/http-server-cpp.git
-   cd http-server-cpp
-   mkdir build && cd build
-   cmake ..
-   make
-
