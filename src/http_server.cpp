@@ -61,6 +61,7 @@ std::unordered_map<std::string, std::string> parse_headers(const std::string& re
     }
     return headers;
 }
+
 int read_request(SOCKET client_fd)
 {
     const int buffer_size = 4096;
@@ -88,12 +89,12 @@ int read_request(SOCKET client_fd)
     size_t files_prefix_len = strlen(files_prefix);
 
     std::string req(buffer, bytes_received);
-    auto headers = parse_headers(req);
+    std::unordered_map<std::string, std::string> headers = parse_headers(req);
 
     // Persistent connection: close if client requests it
     auto conn_it = headers.find("Connection");
     if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos) {
-       return -1;
+        return -1;
     }
 
     if (strcmp(method, "POST") == 0 && strncmp(path, files_prefix, files_prefix_len) == 0)
@@ -160,12 +161,12 @@ int read_request(SOCKET client_fd)
                 std::vector<char> buffer(size);
                 file.read(buffer.data(), size);
 
-                std::string headers = "HTTP/1.1 200 OK\r\n";
-                headers += "Content-Type: application/octet-stream\r\n";
-                headers += "Access-Control-Allow-Origin: *\r\n";
-                headers += "Content-Length: " + std::to_string(size) + "\r\n\r\n";
+                std::string response_headers = "HTTP/1.1 200 OK\r\n";
+                response_headers += "Content-Type: application/octet-stream\r\n";
+                response_headers += "Access-Control-Allow-Origin: *\r\n";
+                response_headers += "Content-Length: " + std::to_string(size) + "\r\n\r\n";
 
-                send(client_fd, headers.c_str(), headers.size(), 0);
+                send(client_fd, response_headers.c_str(), response_headers.size(), 0);
                 send(client_fd, buffer.data(), buffer.size(), 0);
             }
             else
@@ -207,8 +208,8 @@ int read_request(SOCKET client_fd)
                 resp += "Content-Encoding: gzip\r\n";
             }
             if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos) {
-    resp += "Connection: close\r\n";
-}
+                resp += "Connection: close\r\n";
+            }
             resp += "Content-Length: " + std::to_string(response_body.size()) + "\r\n\r\n";
                  
             send(client_fd, resp.c_str(), resp.size(), 0);
@@ -229,11 +230,11 @@ int read_request(SOCKET client_fd)
                 size_t end = req.find("\r\n", start);
                 user_agent_value = req.substr(start, end - start);
             }
-            std::string headers = "HTTP/1.1 200 OK\r\n";
-            headers += "Content-Type: text/plain\r\n";
-            headers += "Access-Control-Allow-Origin: *\r\n";
-            headers += "Content-Length: " + std::to_string(user_agent_value.size()) + "\r\n\r\n";
-            std::string resp = headers + user_agent_value;
+            std::string response_headers = "HTTP/1.1 200 OK\r\n";
+            response_headers += "Content-Type: text/plain\r\n";
+            response_headers += "Access-Control-Allow-Origin: *\r\n";
+            response_headers += "Content-Length: " + std::to_string(user_agent_value.size()) + "\r\n\r\n";
+            std::string resp = response_headers + user_agent_value;
             send(client_fd, resp.c_str(), resp.size(), 0);
             std::cout << "User-Agent echoed: " << user_agent_value << "\n";
 

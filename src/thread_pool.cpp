@@ -5,8 +5,7 @@ ThreadPool::ThreadPool(size_t num_threads) : stop(false)
 {
     for (size_t i = 0; i < num_threads; ++i)
     {
-        workers.emplace_back([this]
-                             {
+        workers.emplace_back([this] {
             while (true) {
                 SOCKET client_fd;
                 {
@@ -20,14 +19,16 @@ ThreadPool::ThreadPool(size_t num_threads) : stop(false)
                 // Persistent connection: handle multiple requests per socket
                 while (true) {
                     int result = read_request(client_fd);
-                    if (result < 0) break; 
-                    
+                    if (result < 0) break;
+
+                    // Check if more data is available (for persistent connections)
                     char peek_buf;
                     int peeked = recv(client_fd, &peek_buf, 1, MSG_PEEK);
                     if (peeked <= 0) break;
                 }
                 closesocket(client_fd);
-            } });
+            }
+        });
     }
 }
 
