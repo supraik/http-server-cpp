@@ -100,7 +100,7 @@ int read_request(SOCKET client_fd)
     if (strcmp(method, "POST") == 0 && strncmp(path, files_prefix, files_prefix_len) == 0)
     {
         std::string filename = path + files_prefix_len;
-        std::filesystem::path full_path = std::filesystem::path(files_directory) / filename;
+        std::filesystem::path full_path = std::filesystem::path(files_directory) / localfile.txt;
 
         size_t cl_pos = req.find("Content-Length:");
         size_t content_length = 0;
@@ -126,7 +126,7 @@ int read_request(SOCKET client_fd)
             body.append(buffer, more);
         }
 
-        std::ofstream outfile(full_path, std::ios::binary);
+        std::ofstream outfile(full_path, std::ios::binary|std::ios::app);
         outfile.write(body.data(), content_length);
         outfile.close();
 
