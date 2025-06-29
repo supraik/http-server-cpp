@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP Server Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Custom Cursor -->
+    <div class="cursor"></div>
+
+    <!-- Background Container -->
+    <div class="bg-container">
+        <div class="gradient-bg"></div>
+        <div class="particles"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">HTTP Dashboard</div>
+            <ul class="nav-links">
+                <li><a href="#" class="nav-link active" data-section="home">Home</a></li>
+                <li><a href="#" class="nav-link" data-section="upload">File Upload</a></li>
+                <li><a href="#" class="nav-link" data-section="echo">Echo Test</a></li>
+                <li><a href="#" class="nav-link" data-section="user-agent">User-Agent</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Section -->
+        <section id="home" class="section active">
+            <div class="hero">
+                <h1>HTTP Server Dashboard</h1>
+                <p>A modern interface for your C++ HTTP server running on localhost:4221</p>
+                <div style="margin-top: 2rem;">
+                    <span id="status-dot" class="status-dot offline"></span>
+<span id="server-status-text">Server Status: Checking...</span>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h2>📁 File Management</h2>
+                    <p>Upload and download files through the server's file endpoints. Supports all file types with proper MIME type detection.</p>
+                    <button class="btn" onclick="showSection('upload')">Go to Upload</button>
+                </div>
+
+                <div class="card">
+                    <h2>🔄 Echo Service</h2>
+                    <p>Test the server's echo functionality with gzip compression support. Perfect for API testing and debugging.</p>
+                    <button class="btn" onclick="showSection('echo')">Try Echo</button>
+                </div>
+
+                <div class="card">
+                    <h2>🕵️ User Agent</h2>
+                    <p>View your browser's user agent string as detected by the server. Useful for browser compatibility testing.</p>
+                    <button class="btn" onclick="showSection('user-agent')">Check User Agent</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- File Upload Section -->
+        <section id="upload" class="section">
+            <div class="card">
+                <h2>📁 File Upload</h2>
+                <p>Upload files to the server. Files will be stored in the configured directory.</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Select File:</label>
+                    <div class="file-input">
+                        <input type="file" id="fileInput" multiple>
+                        <label class="file-input-label" for="fileInput">
+                            Click here or drag files to upload
+                        </label>
+                    </div>
+                </div>
+
+                <button class="btn" onclick="uploadFile()">Upload File</button>
+
+                <div id="uploadResponse" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="card">
+                <h2>📥 Download File</h2>
+                <p>Download files from the server by specifying the filename.</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Filename:</label>
+                    <input type="text" id="downloadInput" class="form-input" placeholder="Enter filename to download">
+                </div>
+
+                <button class="btn" onclick="downloadFile()">Download File</button>
+
+                <div id="downloadResponse" class="response" style="display: none;"></div>
+            </div>
+        </section>
+
+        <!-- Echo Test Section -->
+        <section id="echo" class="section">
+            <div class="card">
+                <h2>🔄 Echo Test</h2>
+                <p>Send text to the server and receive it back. Test the echo endpoint with gzip compression.</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Message to Echo:</label>
+                    <input type="text" id="echoInput" class="form-input" placeholder="Enter text to echo">
+                </div>
+
+                <button class="btn" onclick="testEcho()">Send Echo</button>
+
+                <div id="echoResponse" class="response" style="display: none;"></div>
+            </div>
+        </section>
+
+        <!-- User Agent Section -->
+        <section id="user-agent" class="section">
+            <div class="card">
+                <h2>🕵️ User Agent Detection</h2>
+                <p>Check what user agent string your browser sends to the server.</p>
+                
+                <button class="btn" onclick="getUserAgent()">Get User Agent</button>
+
+                <div id="userAgentResponse" class="response" style="display: none;"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
