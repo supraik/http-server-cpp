@@ -87,12 +87,20 @@ int read_request(SOCKET client_fd)
     const char *files_prefix = "/files/";
     size_t files_prefix_len = strlen(files_prefix);
 
+    std::string req(buffer, bytes_received);
+    auto headers = parse_headers(req);
+
+    // Persistent connection: close if client requests it
+    auto conn_it = headers.find("Connection");
+    if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos) {
+       return -1;
+    }
+
     if (strcmp(method, "POST") == 0 && strncmp(path, files_prefix, files_prefix_len) == 0)
     {
         std::string filename = path + files_prefix_len;
         std::filesystem::path full_path = std::filesystem::path(files_directory) / filename;
 
-        std::string req(buffer, bytes_received);
         size_t cl_pos = req.find("Content-Length:");
         size_t content_length = 0;
         if (cl_pos != std::string::npos)
@@ -124,6 +132,10 @@ int read_request(SOCKET client_fd)
         std::string resp = "HTTP/1.1 201 Created\r\n";
         resp += "Access-Control-Allow-Origin: *\r\n\r\n";
         send(client_fd, resp.c_str(), resp.size(), 0);
+
+        // If client requested connection close, signal to close
+        if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
+            return -1;
         return 0;
     }
     else if (strcmp(method, "GET") != 0 && strcmp(method, "HEAD") != 0)
@@ -162,6 +174,8 @@ int read_request(SOCKET client_fd)
                 resp += "Access-Control-Allow-Origin: *\r\n\r\n";
                 send(client_fd, resp.c_str(), resp.size(), 0);
             }
+            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
+                return -1;
             return 0;
         }
         else if (strncmp(path, echo_prefix, echo_prefix_len) == 0)
@@ -169,8 +183,6 @@ int read_request(SOCKET client_fd)
             const char *echo_text = path + echo_prefix_len;
             std::string body = echo_text;
 
-            std::string req(buffer, bytes_received);
-            auto headers = parse_headers(req);
             bool add_gzip_header = false;
             auto it = headers.find("Accept-Encoding");
             if (it != headers.end()) {
@@ -194,17 +206,22 @@ int read_request(SOCKET client_fd)
                 response_body = gzip_compress(body);
                 resp += "Content-Encoding: gzip\r\n";
             }
+            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos) {
+    resp += "Connection: close\r\n";
+}
             resp += "Content-Length: " + std::to_string(response_body.size()) + "\r\n\r\n";
-
+                 
             send(client_fd, resp.c_str(), resp.size(), 0);
             send(client_fd, response_body.data(), response_body.size(), 0);
             std::cout << "Echoed: " << body << "\n";
+
+            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
+                return -1;
         }
         else if (strcmp(path, "/user-agent") == 0)
         {
-            std::string req(buffer);
-            std::string user_agent_value;
             std::string search = "User-Agent: ";
+            std::string user_agent_value;
             size_t pos = req.find(search);
             if (pos != std::string::npos)
             {
@@ -219,6 +236,9 @@ int read_request(SOCKET client_fd)
             std::string resp = headers + user_agent_value;
             send(client_fd, resp.c_str(), resp.size(), 0);
             std::cout << "User-Agent echoed: " << user_agent_value << "\n";
+
+            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
+                return -1;
         }
         else if (strcmp(path, "/index.html") == 0 || strcmp(path, "/") == 0)
         {
@@ -232,6 +252,9 @@ int read_request(SOCKET client_fd)
             std::string resp = "HTTP/1.1 404 Not Found\r\n";
             resp += "Access-Control-Allow-Origin: *\r\n\r\n";
             send(client_fd, resp.c_str(), resp.size(), 0);
+
+            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
+                return -1;
         }
         return 0;
     }
