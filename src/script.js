@@ -1,5 +1,5 @@
 checkServerStatus();
-setInterval(checkServerStatus, 10000);
+setInterval(checkServerStatus, 1000000);
 
 // Custom cursor
 const cursor = document.querySelector(".cursor");

@@ -2,23 +2,34 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <string>
+#include <thread>
 #include "thread_pool.h"
 #include "http_server.h"
-
+#include<cstdlib>
+#include <filesystem>
 #pragma comment(lib, "ws2_32.lib")
+
 
 std::string files_directory;
 
 int main(int argc, char **argv)
 {
-    files_directory = "."; // Default directory for files
-
-    // Parse command line arguments for --directory option
-    for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == "--directory" && i + 1 < argc) {
-            files_directory = argv[i + 1];
+    files_directory = "."; 
+    std::cout << "Welcome to the HTTP server!\n";
+   const char* env_dir = std::getenv("FILES_DIRECTORY");
+    if (env_dir) {
+        files_directory = env_dir;
+    } else {
+        files_directory = ".";
+        for (int i = 1; i < argc; ++i) {
+            if (std::string(argv[i]) == "--directory" && i + 1 < argc) {
+                files_directory = argv[i + 1];
+                ++i;
+            }
         }
     }
+    std::filesystem::create_directories(files_directory);
+    std::cout << "Files will be served from: " << files_directory << "\n";
 
     std::cout << "Files will be served from: " << files_directory << "\n";
     std::cout << std::unitbuf;

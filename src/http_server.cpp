@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <zlib.h>
+
 extern std::string files_directory;
 
 std::string gzip_compress(const std::string& data) {
@@ -47,7 +48,7 @@ std::unordered_map<std::string, std::string> parse_headers(const std::string& re
     std::unordered_map<std::string, std::string> headers;
     std::istringstream stream(request);
     std::string line;
-    std::getline(stream, line); // skip request line
+    std::getline(stream, line);
     while (std::getline(stream, line) && line != "\r") {
         size_t pos = line.find(":");
         if (pos != std::string::npos) {
@@ -62,202 +63,136 @@ std::unordered_map<std::string, std::string> parse_headers(const std::string& re
     return headers;
 }
 
-int read_request(SOCKET client_fd)
-{
+int read_request(SOCKET client_fd) {
     const int buffer_size = 4096;
     char buffer[buffer_size];
+    std::string request;
 
-    int bytes_received = recv(client_fd, buffer, buffer_size - 1, 0);
-    if (bytes_received < 0)
-    {
-        std::cerr << "recv failed\n";
-        return -1;
+    int bytes_received;
+    while ((bytes_received = recv(client_fd, buffer, buffer_size - 1, 0)) > 0) {
+        buffer[bytes_received] = '\0';
+        request.append(buffer, bytes_received);
+        if (request.find("\r\n\r\n") != std::string::npos) break;
     }
 
-    buffer[bytes_received] = '\0';
+    if (request.empty()) return -1;
 
-    std::cout << "Received request:\n" << buffer << "\n";
+    std::istringstream request_stream(request);
+    std::string request_line;
+    std::getline(request_stream, request_line);
 
     char method[16], path[256], protocol[16];
-    sscanf(buffer, "%s %s %s", method, path, protocol);
+    sscanf(request_line.c_str(), "%s %s %s", method, path, protocol);
 
-    std::cout << "Method: " << method << "\n";
-    std::cout << "Path: " << path << "\n";
-    std::cout << "Protocol: " << protocol << "\n";
+    auto headers = parse_headers(request);
+    std::cout<<"Options==>"<<" "<<method<<std::endl;
+   /* if (strcmp(method, "OPTIONS") == 0) {
+        std::string resp = "HTTP/1.1 204 No Content\r\n";
+        resp += "Access-Control-Allow-Origin: *\r\n";
+        resp += "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n";
+        resp += "Access-Control-Allow-Headers: Content-Type\r\n\r\n";
+        send(client_fd, resp.c_str(), resp.size(), 0);
+        return 0;
+    }/*/
 
-    const char *files_prefix = "/files/";
-    size_t files_prefix_len = strlen(files_prefix);
+    if (strcmp(method, "POST") == 0 && strncmp(path, "/files/", 7) == 0) {
+        std::string filename = path + 7;
+        std::filesystem::path full_path = std::filesystem::path(files_directory) / filename;
 
-    std::string req(buffer, bytes_received);
-    std::unordered_map<std::string, std::string> headers = parse_headers(req);
+        size_t header_end = request.find("\r\n\r\n");
+        size_t body_start = header_end + 4;
 
-    // Persistent connection: close if client requests it
-    auto conn_it = headers.find("Connection");
-    if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos) {
-        return -1;
-    }
-
-    if (strcmp(method, "POST") == 0 && strncmp(path, files_prefix, files_prefix_len) == 0)
-    {
-        std::string filename = path + files_prefix_len;
-        std::filesystem::path full_path = std::filesystem::path(files_directory) / localfile.txt;
-
-        size_t cl_pos = req.find("Content-Length:");
-        size_t content_length = 0;
-        if (cl_pos != std::string::npos)
-        {
-            size_t start = cl_pos + strlen("Content-Length:");
-            while (start < req.size() && (req[start] == ' ' || req[start] == '\t')) start++;
-            size_t end = req.find("\r\n", start);
-            content_length = std::stoul(req.substr(start, end - start));
-        }
-        size_t header_end = req.find("\r\n\r\n");
-        if (header_end == std::string::npos)
-        {
-            std::cerr << "Invalid request format\n";
+        auto content_length_it = headers.find("Content-Length");
+        if (content_length_it == headers.end()) {
+           std::string resp = "HTTP/1.1 201 Created\r\n";
+resp += "Access-Control-Allow-Origin: *\r\n";
+resp += "Content-Length: 0\r\n\r\n";
+            send(client_fd, resp.c_str(), resp.size(), 0);
             return -1;
         }
 
-        std::string body = req.substr(header_end + 4);
-        while (body.size() < content_length)
-        {
+        size_t content_length = std::stoul(content_length_it->second);
+        std::string body = request.substr(body_start);
+
+        while (body.size() < content_length) {
             int more = recv(client_fd, buffer, buffer_size, 0);
             if (more <= 0) break;
             body.append(buffer, more);
         }
 
-        std::ofstream outfile(full_path, std::ios::binary|std::ios::app);
+        std::ofstream outfile(full_path, std::ios::binary);
         outfile.write(body.data(), content_length);
         outfile.close();
 
-        std::string resp = "HTTP/1.1 201 Created\r\n";
-        resp += "Access-Control-Allow-Origin: *\r\n\r\n";
-        send(client_fd, resp.c_str(), resp.size(), 0);
+       std::string resp = "HTTP/1.1 201 Created\r\n";
+resp += "Access-Control-Allow-Origin: *\r\n";
+resp += "Content-Length: 0\r\n\r\n";
+send(client_fd, resp.c_str(), resp.size(), 0);
 
-        // If client requested connection close, signal to close
-        if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
-            return -1;
+        send(client_fd, resp.c_str(), resp.size(), 0);
         return 0;
     }
-    else if (strcmp(method, "GET") != 0 && strcmp(method, "HEAD") != 0)
-    {
-        std::cerr << "Unsupported method: " << method << "\n";
-        return -1;
-    }
-    else
-    {
-        const char *echo_prefix = "/echo/";
-        size_t echo_prefix_len = strlen(echo_prefix);
-        if (strncmp(path, files_prefix, files_prefix_len) == 0)
-        {
-            std::string filename = path + files_prefix_len;
-            std::filesystem::path full_path = std::filesystem::path(files_directory) / filename;
-            std::cout << "Trying to open file: " << full_path << std::endl;
-            std::ifstream file(full_path, std::ios::binary | std::ios::ate);
-            if (file)
-            {
-                std::streamsize size = file.tellg();
-                file.seekg(0, std::ios::beg);
-                std::vector<char> buffer(size);
-                file.read(buffer.data(), size);
 
-                std::string response_headers = "HTTP/1.1 200 OK\r\n";
-                response_headers += "Content-Type: application/octet-stream\r\n";
-                response_headers += "Access-Control-Allow-Origin: *\r\n";
-                response_headers += "Content-Length: " + std::to_string(size) + "\r\n\r\n";
-
-                send(client_fd, response_headers.c_str(), response_headers.size(), 0);
-                send(client_fd, buffer.data(), buffer.size(), 0);
-            }
-            else
-            {
-                std::string resp = "HTTP/1.1 404 Not Found\r\n";
-                resp += "Access-Control-Allow-Origin: *\r\n\r\n";
-                send(client_fd, resp.c_str(), resp.size(), 0);
-            }
-            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
-                return -1;
+    if (strcmp(method, "GET") == 0 && strncmp(path, "/files/", 7) == 0) {
+        std::string filename = path + 7;
+        std::filesystem::path full_path = std::filesystem::path(files_directory) / filename;
+        std::ifstream file(full_path, std::ios::binary | std::ios::ate);
+        if (!file) {
+            std::string resp = "HTTP/1.1 404 Not Found\r\nAccess-Control-Allow-Origin: *\r\n\r\n";
+            send(client_fd, resp.c_str(), resp.size(), 0);
             return 0;
         }
-        else if (strncmp(path, echo_prefix, echo_prefix_len) == 0)
-        {
-            const char *echo_text = path + echo_prefix_len;
-            std::string body = echo_text;
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        std::vector<char> buffer(size);
+        file.read(buffer.data(), size);
 
-            bool add_gzip_header = false;
-            auto it = headers.find("Accept-Encoding");
-            if (it != headers.end()) {
-                std::istringstream iss(it->second);
-                std::string encoding;
-                while (std::getline(iss, encoding, ',')) {
-                    encoding.erase(0, encoding.find_first_not_of(" \t"));
-                    encoding.erase(encoding.find_last_not_of(" \t") + 1);
-                    if (encoding == "gzip") {
-                        add_gzip_header = true;
-                        break;
-                    }
-                }
-            }
-
-            std::string resp = "HTTP/1.1 200 OK\r\n";
-            resp += "Content-Type: text/plain\r\n";
-            resp += "Access-Control-Allow-Origin: *\r\n";
-            std::string response_body = body;
-            if (add_gzip_header) {
-                response_body = gzip_compress(body);
-                resp += "Content-Encoding: gzip\r\n";
-            }
-            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos) {
-                resp += "Connection: close\r\n";
-            }
-            resp += "Content-Length: " + std::to_string(response_body.size()) + "\r\n\r\n";
-                 
-            send(client_fd, resp.c_str(), resp.size(), 0);
-            send(client_fd, response_body.data(), response_body.size(), 0);
-            std::cout << "Echoed: " << body << "\n";
-
-            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
-                return -1;
-        }
-        else if (strcmp(path, "/user-agent") == 0)
-        {
-            std::string search = "User-Agent: ";
-            std::string user_agent_value;
-            size_t pos = req.find(search);
-            if (pos != std::string::npos)
-            {
-                size_t start = pos + search.length();
-                size_t end = req.find("\r\n", start);
-                user_agent_value = req.substr(start, end - start);
-            }
-            std::string response_headers = "HTTP/1.1 200 OK\r\n";
-            response_headers += "Content-Type: text/plain\r\n";
-            response_headers += "Access-Control-Allow-Origin: *\r\n";
-            response_headers += "Content-Length: " + std::to_string(user_agent_value.size()) + "\r\n\r\n";
-            std::string resp = response_headers + user_agent_value;
-            send(client_fd, resp.c_str(), resp.size(), 0);
-            std::cout << "User-Agent echoed: " << user_agent_value << "\n";
-
-            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
-                return -1;
-        }
-        else if (strcmp(path, "/index.html") == 0 || strcmp(path, "/") == 0)
-        {
-            std::string resp = "HTTP/1.1 200 OK\r\n";
-            resp += "Access-Control-Allow-Origin: *\r\n\r\n";
-            send(client_fd, resp.c_str(), resp.size(), 0);
-            std::cout << "Root/index path served.\n";
-        }
-        else
-        {
-            std::string resp = "HTTP/1.1 404 Not Found\r\n";
-            resp += "Access-Control-Allow-Origin: *\r\n\r\n";
-            send(client_fd, resp.c_str(), resp.size(), 0);
-
-            if (conn_it != headers.end() && conn_it->second.find("close") != std::string::npos)
-                return -1;
-        }
+        std::string headers = "HTTP/1.1 200 OK\r\n";
+        headers += "Content-Type: application/octet-stream\r\n";
+        headers += "Access-Control-Allow-Origin: *\r\n";
+        headers += "Content-Length: " + std::to_string(size) + "\r\n\r\n";
+        send(client_fd, headers.c_str(), headers.size(), 0);
+        send(client_fd, buffer.data(), buffer.size(), 0);
         return 0;
     }
+
+    if (strncmp(path, "/echo/", 6) == 0) {
+        std::string msg = path + 6;
+        std::string body = msg;
+
+        bool gzip = false;
+        auto ae = headers.find("Accept-Encoding");
+        if (ae != headers.end() && ae->second.find("gzip") != std::string::npos)
+            gzip = true;
+
+        std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\n";
+        if (gzip) {
+            body = gzip_compress(body);
+            resp += "Content-Encoding: gzip\r\n";
+        }
+        resp += "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n";
+        send(client_fd, resp.c_str(), resp.size(), 0);
+        send(client_fd, body.data(), body.size(), 0);
+        return 0;
+    }
+
+    if (strcmp(path, "/user-agent") == 0) {
+        std::string search = "User-Agent: ";
+        std::string ua;
+        size_t pos = request.find(search);
+        if (pos != std::string::npos) {
+            size_t start = pos + search.size();
+            size_t end = request.find("\r\n", start);
+            ua = request.substr(start, end - start);
+        }
+        std::string headers = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nAccess-Control-Allow-Origin: *\r\n";
+        headers += "Content-Length: " + std::to_string(ua.size()) + "\r\n\r\n";
+        std::string resp = headers + ua;
+        send(client_fd, resp.c_str(), resp.size(), 0);
+        return 0;
+    }
+
+    std::string resp = "HTTP/1.1 404 Not Found\r\nAccess-Control-Allow-Origin: *\r\n\r\n";
+    send(client_fd, resp.c_str(), resp.size(), 0);
     return 0;
 }
